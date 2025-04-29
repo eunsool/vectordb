@@ -7,8 +7,6 @@ import streamlit as st
 import random
 import chromadb
 from chromadb.utils import embedding_functions
-from sentence_transformers import SentenceTransformer
-import numpy as np
 from datetime import datetime
 from openai import OpenAI  # 최신 OpenAI 패키지 임포트 방식으로 변경
 import os
@@ -24,6 +22,7 @@ with st.sidebar:
     # API 키 저장
     if api_key:
         st.session_state.openai_api_key = api_key
+        os.environ["OPENAI_API_KEY"] = api_key  # 환경 변수에도 저장 (임베딩에 사용)
         # 클라이언트 초기화는 실제 API 호출 시 수행
         st.success("API 키가 설정되었습니다!")
     else:
@@ -33,19 +32,37 @@ with st.sidebar:
 st.title("🏪 광진구 착한가게 소개 챗봇")
 st.write("광진구의 다양한 착한가게에 대한 정보를 물어보세요.")
 
-# 임베딩 모델 설정 (세션 상태에 저장하여 재로딩 방지)
-# @st.cache_resource
-# def load_embedding_model():
-#     return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')  # 다국어 지원 모델 사용
-
+# OpenAI 임베딩 함수 정의
 @st.cache_resource
-def load_embedding_model():
-    # 임시 디렉토리를 명시적으로 지정
-    import tempfile
-    cache_dir = tempfile.gettempdir()
-    return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', cache_folder=cache_dir)
+def get_openai_embedding_function():
+    if not hasattr(st.session_state, 'openai_api_key') or not st.session_state.openai_api_key:
+        # API 키가 없는 경우 기본 임베딩 함수 사용
+        return embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="paraphrase-multilingual-MiniLM-L12-v2"
+        )
+    else:
+        # OpenAI 임베딩 함수 사용
+        return embedding_functions.OpenAIEmbeddingFunction(
+            api_key=st.session_state.openai_api_key,
+            model_name="text-embedding-3-small"
+        )
 
-embedding_model = load_embedding_model()
+# OpenAI 임베딩을 사용한 텍스트 임베딩 생성 함수
+def get_openai_embedding(text):
+    if not hasattr(st.session_state, 'openai_api_key') or not st.session_state.openai_api_key:
+        st.warning("OpenAI 임베딩을 사용하려면 API 키를 입력하세요")
+        return None
+        
+    try:
+        client = OpenAI(api_key=st.session_state.openai_api_key)
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input=text
+        )
+        return response.data[0].embedding
+    except Exception as e:
+        st.error(f"임베딩 생성 중 오류 발생: {str(e)}")
+        return None
 
 # Chroma DB 클라이언트 설정
 @st.cache_resource
@@ -53,10 +70,8 @@ def get_chroma_client():
     # 메모리에 저장하는 클라이언트 생성
     client = chromadb.Client()
     
-    # 사용자 정의 임베딩 함수 설정
-    embedding_function = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name="paraphrase-multilingual-MiniLM-L12-v2"
-    )
+    # OpenAI 임베딩 함수 가져오기
+    embedding_function = get_openai_embedding_function()
     
     # 컬렉션 생성 또는 가져오기
     try:
