@@ -34,9 +34,16 @@ st.title("🏪 광진구 착한가게 소개 챗봇")
 st.write("광진구의 다양한 착한가게에 대한 정보를 물어보세요.")
 
 # 임베딩 모델 설정 (세션 상태에 저장하여 재로딩 방지)
+# @st.cache_resource
+# def load_embedding_model():
+#     return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')  # 다국어 지원 모델 사용
+
 @st.cache_resource
 def load_embedding_model():
-    return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2')  # 다국어 지원 모델 사용
+    # 임시 디렉토리를 명시적으로 지정
+    import tempfile
+    cache_dir = tempfile.gettempdir()
+    return SentenceTransformer('paraphrase-multilingual-MiniLM-L12-v2', cache_folder=cache_dir)
 
 embedding_model = load_embedding_model()
 
