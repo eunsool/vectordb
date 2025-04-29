@@ -36,16 +36,13 @@ st.write("광진구의 다양한 착한가게에 대한 정보를 물어보세�
 @st.cache_resource
 def get_openai_embedding_function():
     if not hasattr(st.session_state, 'openai_api_key') or not st.session_state.openai_api_key:
-        # API 키가 없는 경우 기본 임베딩 함수 사용
-        return embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="paraphrase-multilingual-MiniLM-L12-v2"
-        )
-    else:
-        # OpenAI 임베딩 함수 사용
-        return embedding_functions.OpenAIEmbeddingFunction(
-            api_key=st.session_state.openai_api_key,
-            model_name="text-embedding-3-small"
-        )
+        st.error("OpenAI API 키가 없습니다. API 키를 입력해주세요.")
+        st.stop()
+    # OpenAI 임베딩 함수 사용
+    return embedding_functions.OpenAIEmbeddingFunction(
+        api_key=st.session_state.openai_api_key,
+        model_name="text-embedding-3-small"
+    )
 
 # OpenAI 임베딩을 사용한 텍스트 임베딩 생성 함수
 def get_openai_embedding(text):
